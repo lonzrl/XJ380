@@ -55,8 +55,21 @@ jobs:
           export SUDO=0
           ninja -f build.ninja vdisk
 
-      - name: Show output artifacts
-        run: ls -lh out/ XJ380.img
+      - name: Debug - Print working dir & all files
+        run: |
+          pwd
+          ls -la
+          ls -la out/ 2>/dev/null || echo "out目录不存在"
+
+      - name: Upload raw disk image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenXJ380‑disk‑image
+          path: |
+            ./XJ380.img
+            ./out/
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Optional convert raw image to ISO
         if: false
@@ -64,19 +77,11 @@ jobs:
           sudo apt install -y genisoimage
           genisoimage -o OpenXJ380.iso -efi-boot-part --efi-boot-image XJ380.img
 
-      - name: Upload raw disk image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenXJ380‑disk‑image
-          path: |
-            XJ380.img
-            out/
-          retention-days: 14
-
       - name: Upload ISO artifact (if generated)
         if: false
         uses: actions/upload-artifact@v4
         with:
           name: OpenXJ380‑iso
-          path: OpenXJ380.iso
+          path: ./OpenXJ380.iso
           retention-days: 14
+          if-no-files-found: error
