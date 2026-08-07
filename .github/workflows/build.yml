@@ -27,7 +27,7 @@ jobs:
       - name: Verify toolchain
         run: |
           clang --version
-          lld --version
+          ld.lld --version
           nasm -v
           ninja --version
           python3 --version
