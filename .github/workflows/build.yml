@@ -1,0 +1,78 @@
+name: Build OpenXJ380
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            clang lld nasm ninja-build \
+            mtools gdisk dosfstools \
+            qemu-system-x86 qemu-utils ovmf \
+            python3 python3-pip
+
+      - name: Verify toolchain
+        run: |
+          clang --version
+          lld --version
+          nasm -v
+          ninja --version
+          python3 --version
+
+      - name: Generate ninja build graph
+        run: python3 tools/gen_ninja.py --out build.ninja
+
+      - name: Check host tools availability
+        run: ninja -f build.ninja check.tools
+
+      - name: Build all targets
+        run: ninja -f build.ninja all
+
+      - name: Build kernel modules
+        run: ninja -f build.ninja kmods
+
+      - name: Generate UEFI boot disk image XJ380.img
+        run: |
+          # CI环境关闭sudo，避免权限交互
+          export SUDO=0
+          ninja -f build.ninja vdisk
+
+      - name: Show output artifacts
+        run: ls -lh out/ XJ380.img
+
+      # 可选：将raw img转换为ISO（genisoimage，UEFI可引导ISO）
+      - name: Optional convert raw image to ISO
+        if: false # 默认关闭，需要时把false改为true
+        run: |
+          sudo apt install -y genisoimage
+          genisoimage -o OpenXJ380.iso -efi-boot-part --efi-boot-image XJ380.img
+
+      - name: Upload raw disk image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenXJ380‑disk‑image
+          path: |
+            XJ380.img
+            out/
+          retention-days: 14
+
+      - name: Upload ISO artifact (if generated)
+        if: false
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenXJ380‑iso
+          path: OpenXJ380.iso
+          retention-days:14
