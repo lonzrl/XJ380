@@ -4,7 +4,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: # 支持手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -46,7 +46,6 @@ jobs:
 
       - name: Generate UEFI boot disk image XJ380.img
         run: |
-          # CI环境关闭sudo，避免权限交互
           export SUDO=0
           ninja -f build.ninja vdisk
 
@@ -55,7 +54,7 @@ jobs:
 
       # 可选：将raw img转换为ISO（genisoimage，UEFI可引导ISO）
       - name: Optional convert raw image to ISO
-        if: false # 默认关闭，需要时把false改为true
+        if: false
         run: |
           sudo apt install -y genisoimage
           genisoimage -o OpenXJ380.iso -efi-boot-part --efi-boot-image XJ380.img
@@ -75,4 +74,4 @@ jobs:
         with:
           name: OpenXJ380‑iso
           path: OpenXJ380.iso
-          retention-days:14
+          retention-days: 14
