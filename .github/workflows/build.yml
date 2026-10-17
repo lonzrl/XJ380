@@ -1,59 +1,68 @@
-name: Build XJ380 IMG Image
+name: Build XJ380 IMG & ISO Image
 
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-  workflow_dispatch: # 支持手动触发构建
+  workflow_dispatch:
 
 permissions:
-  contents: write # 用于Release上传文件
+  contents: write
 
 jobs:
-  build-img:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
 
-      - name: Install build dependencies (XJ380)
+      - name: Install all system dependencies (Full for IMG+ISO)
         run: |
           sudo apt update
           sudo apt install -y \
             clang lld nasm ninja-build \
             mtools gdisk dosfstools \
             qemu-system-x86 qemu-utils ovmf \
-            python3
+            python3 \
+            gcc-mingw-w64-x86-64 \
+            xorriso
+
+      - name: Setup Rust (with x86_64-unknown-none target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
 
       - name: Generate build.ninja
         run: python3 tools/gen_ninja.py --out build.ninja
 
-      - name: Check build toolchain
+      - name: Check all build tools
         run: ninja -f build.ninja check.tools
 
-      - name: Build project & generate IMG
+      - name: Build project, generate IMG + ISO
         run: ninja -f build.ninja
 
-      - name: List build artifacts
+      - name: List output artifacts
         run: ls -la
 
-      - name: Upload IMG to Action Artifact
+      - name: Upload IMG & ISO to Action Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xj380-${{ github.sha }}-img
-          # 修改为你的img实际输出路径，例如 out/*.img
-          path: ./*.img
+          name: xj380-${{ github.sha }}-artifacts
+          path: |
+            ./*.img
+            ./*.iso
           retention-days: 14
 
-      - name: Upload IMG to GitHub Release (only tag)
+      - name: Upload IMG & ISO to GitHub Release (only tag push)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
-          # 和上面artifact路径保持一致
-          files: ./*.img
+          files: |
+            ./*.img
+            ./*.iso
           generate_release_notes: true
           draft: false
           prerelease: false
