@@ -45,7 +45,7 @@ jobs:
       - name: Print all ninja targets (debug)
         run: ninja -f build.ninja -t targets
 
-      # ========== 这里先注释掉镜像构建，先跑一次拿到目标列表 ==========
+      # ========== 先注释镜像构建，获取目标名称 ==========
       # - name: Build image targets
       #   run: ninja -f build.ninja PUT_REAL_TARGET_HERE
 
@@ -59,7 +59,7 @@ jobs:
           path: |
             *.img
             *.iso
-          retention-days:14
+          retention-days: 14
 
       - name: Upload to Release (only tag push)
         uses: softprops/action-gh-release@v2
