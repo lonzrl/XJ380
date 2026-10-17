@@ -1,4 +1,4 @@
-name: Build XJ380 & Generate XJ380.img
+name: Build XJ380 Full (check.tools pass + XJ380.img)
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -20,30 +20,36 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Install dependencies (match README)
+      - name: Install ALL required system packages
         run: |
           sudo apt update
           sudo apt install -y \
             clang lld nasm ninja-build \
             mtools gdisk dosfstools \
             qemu-system-x86 qemu-utils ovmf \
-            python3
+            python3 \
+            gcc-mingw-w64-x86-64 \
+            xorriso
+
+      - name: Setup Rust with x86_64-unknown-none target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
 
       - name: Generate build.ninja
         run: python3 tools/gen_ninja.py --out build.ninja
 
-      - name: Check build toolchain
+      - name: Check all build tools (now all satisfied)
         run: ninja -f build.ninja check.tools
 
       - name: Build all binaries
         run: ninja -f build.ninja all
 
-      - name: Build vdisk → XJ380.img
+      - name: Build vdisk -> XJ380.img
         run: |
-          # 开启SUDO=1，满足分区与文件系统写入权限
           SUDO=1 ninja -f build.ninja vdisk
 
-      - name: List files (verify XJ380.img exists)
+      - name: List generated files
         run: ls -la
 
       - name: Upload XJ380.img to artifact
@@ -53,7 +59,7 @@ jobs:
           path: XJ380.img
           retention-days: 14
 
-      - name: Upload XJ380.img to GitHub Release (tag only)
+      - name: Upload to GitHub Release (only tag push)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
