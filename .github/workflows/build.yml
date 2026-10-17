@@ -1,87 +1,59 @@
-name: OpenXJ380 CI Build
+name: Build XJ380 IMG Image
+
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    tags: [ 'v*' ]
+  workflow_dispatch: # 支持手动触发构建
+
+permissions:
+  contents: write # 用于Release上传文件
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+  build-img:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
+          submodules: true
           fetch-depth: 0
 
-      - name: Install system build dependencies
+      - name: Install build dependencies (XJ380)
         run: |
           sudo apt update
           sudo apt install -y \
             clang lld nasm ninja-build \
             mtools gdisk dosfstools \
-            qemu-system-x86 qemu-utils ovmf xorriso \
-            python3 python3-pip \
-            gcc-mingw-w64-x86-64
+            qemu-system-x86 qemu-utils ovmf \
+            python3
 
-      - name: Install Rust bare‑metal target
-        run: rustup target add x86_64-unknown-none
-
-      - name: Verify toolchain
-        run: |
-          clang --version
-          ld.lld --version
-          nasm -v
-          ninja --version
-          python3 --version
-          x86_64-w64-mingw32-gcc --version
-          rustup show
-
-      - name: Generate ninja build graph
+      - name: Generate build.ninja
         run: python3 tools/gen_ninja.py --out build.ninja
 
-      - name: Check host tools availability
+      - name: Check build toolchain
         run: ninja -f build.ninja check.tools
 
-      - name: Build all targets
-        run: ninja -f build.ninja all
+      - name: Build project & generate IMG
+        run: ninja -f build.ninja
 
-      - name: Build kernel modules
-        run: ninja -f build.ninja kmods
+      - name: List build artifacts
+        run: ls -la
 
-      - name: Generate UEFI boot disk image XJ380.img
-        run: |
-          export SUDO=0
-          ninja -f build.ninja vdisk
-
-      - name: Debug - Print working dir & all files
-        run: |
-          pwd
-          ls -la
-          ls -la out/ 2>/dev/null || echo "out目录不存在"
-
-      - name: Upload raw disk image artifact
+      - name: Upload IMG to Action Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenXJ380‑disk‑image
-          path: |
-            ./XJ380.img
-            ./out/
+          name: xj380-${{ github.sha }}-img
+          # 修改为你的img实际输出路径，例如 out/*.img
+          path: ./*.img
           retention-days: 14
-          if-no-files-found: error
 
-      - name: Optional convert raw image to ISO
-        if: false
-        run: |
-          sudo apt install -y genisoimage
-          genisoimage -o OpenXJ380.iso -efi-boot-part --efi-boot-image XJ380.img
-
-      - name: Upload ISO artifact (if generated)
-        if: false
-        uses: actions/upload-artifact@v4
+      - name: Upload IMG to GitHub Release (only tag)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
-          name: OpenXJ380‑iso
-          path: ./OpenXJ380.iso
-          retention-days: 14
-          if-no-files-found: error
+          # 和上面artifact路径保持一致
+          files: ./*.img
+          generate_release_notes: true
+          draft: false
+          prerelease: false
