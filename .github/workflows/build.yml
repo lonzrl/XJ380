@@ -42,34 +42,32 @@ jobs:
       - name: Check all build tools
         run: ninja -f build.ninja check.tools
 
-      - name: List all ninja targets（调试，查看可用目标）
+      - name: Print all ninja targets (debug)
         run: ninja -f build.ninja -t targets
 
-      - name: Build disk.img
-        run: ninja -f build.ninja disk.img
+      # ========== 这里先注释掉镜像构建，先跑一次拿到目标列表 ==========
+      # - name: Build image targets
+      #   run: ninja -f build.ninja PUT_REAL_TARGET_HERE
 
-      - name: Build boot.iso
-        run: ninja -f build.ninja boot.iso
-
-      - name: List all generated files
+      - name: List files
         run: ls -la
 
-      - name: Upload artifacts (img + iso)
+      - name: Upload artifacts placeholder
         uses: actions/upload-artifact@v4
         with:
           name: xj380-${{ github.sha }}-artifacts
           path: |
-            disk.img
-            boot.iso
-          retention-days: 14
+            *.img
+            *.iso
+          retention-days:14
 
       - name: Upload to Release (only tag push)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: |
-            disk.img
-            boot.iso
+            *.img
+            *.iso
           generate_release_notes: true
           draft: false
           prerelease: false
