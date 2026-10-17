@@ -1,4 +1,4 @@
-name: Build XJ380 IMG + ISO
+name: Build XJ380 & Generate XJ380.img
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -20,54 +20,44 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Install full system dependencies
+      - name: Install dependencies (match README)
         run: |
           sudo apt update
           sudo apt install -y \
             clang lld nasm ninja-build \
             mtools gdisk dosfstools \
             qemu-system-x86 qemu-utils ovmf \
-            python3 \
-            gcc-mingw-w64-x86-64 \
-            xorriso
-
-      - name: Setup Rust (with x86_64-unknown-none)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-none
+            python3
 
       - name: Generate build.ninja
         run: python3 tools/gen_ninja.py --out build.ninja
 
-      - name: Check all build tools
+      - name: Check build toolchain
         run: ninja -f build.ninja check.tools
 
-      - name: Print all ninja targets (debug)
-        run: ninja -f build.ninja -t targets
+      - name: Build all binaries
+        run: ninja -f build.ninja all
 
-      # ========== 先注释镜像构建，获取目标名称 ==========
-      # - name: Build image targets
-      #   run: ninja -f build.ninja PUT_REAL_TARGET_HERE
+      - name: Build vdisk → XJ380.img
+        run: |
+          # 开启SUDO=1，满足分区与文件系统写入权限
+          SUDO=1 ninja -f build.ninja vdisk
 
-      - name: List files
+      - name: List files (verify XJ380.img exists)
         run: ls -la
 
-      - name: Upload artifacts placeholder
+      - name: Upload XJ380.img to artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xj380-${{ github.sha }}-artifacts
-          path: |
-            *.img
-            *.iso
+          name: xj380-${{ github.sha }}-img
+          path: XJ380.img
           retention-days: 14
 
-      - name: Upload to Release (only tag push)
+      - name: Upload XJ380.img to GitHub Release (tag only)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: |
-            *.img
-            *.iso
+          files: XJ380.img
           generate_release_notes: true
           draft: false
           prerelease: false
